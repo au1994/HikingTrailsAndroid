@@ -56,19 +56,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Log.i(TAG, "your android id " + androidId);
 
         //Todo: check for saved instance
-        //Todo: put all the strings in string.xml
-
-        startHiking = (TextView) findViewById(R.id.startHiking);
-        startHiking.setOnClickListener(this);
-
-        stopHiking = (TextView) findViewById(R.id.stopHiking);
-        stopHiking.setOnClickListener(this);
-        stopHiking.setEnabled(false);
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
+        startHiking = (TextView) findViewById(R.id.startHiking);
+        startHiking.setOnClickListener(this);
 
     }
 
@@ -78,20 +73,60 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         switch(v.getId())
         {
             case R.id.startHiking:
-                //Todo: start hiking:-
-                Log.i(TAG, "start button clicked");
-                stopHiking.setEnabled(true);
-                startHiking.setEnabled(false);
-                //startHiking.setEnabled();
+                if(startHiking.getText().toString().equals("START HIKING"))
+                {
+                    //Todo: start hiking:-
+                    Log.i(TAG, "start button clicked");
+
+                    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+                    {
+                        // TODO: Consider calling
+                        // ActivityCompat#requestPermissions
+                        // here to request the missing permissions, and then overriding
+                        // public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                        //                                        int[] grantResults)
+                        // to handle the case where the user grants the permission. See the documentation
+                        // for ActivityCompat#requestPermissions for more details.
+
+                        ActivityCompat.requestPermissions(this,
+                                new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                                MY_PERMISSION
+                        );
+
+                    }
+                    else
+                    {
+                        startHiking.setText(R.string.stop_hiking);
+                        try
+                        {
+                            Log.i(TAG, "fix is here");
+                            LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+                            LocationListener locationListener = new MyLocationListener(getBaseContext(), MapsActivity.this);
+                            currentLocation = locationManager.getLastKnownLocation(locationManager.GPS_PROVIDER);
+                            locationManager.requestLocationUpdates(
+                                    LocationManager.GPS_PROVIDER, 10000, 10, locationListener);
+
+                            // Add a marker of your current location and move the camera
+                            LatLng latLng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
+                            trail.add(latLng);
+                            mMap.addMarker(new MarkerOptions().position(latLng).title("Your Location"));
+                            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16));
+                        }
+                        catch (SecurityException | NullPointerException e)
+                        {
+                            Log.i(TAG, "onMapReady");
+                            e.printStackTrace();
+                        }
+
+                    }
+                }
+                else
+                {
+                    new createTrailAsyncTask();
+                    startHiking.setText(R.string.start_hiking);
+                }
                 break;
 
-            case R.id.stopHiking:
-                //Todo: stop hiking post the trail data to the api
-                Log.i(TAG, "stop button clicked");
-                new createTrailAsyncTask().execute();
-                startHiking.setEnabled(true);
-                startHiking.setEnabled(false);
-                break;
 
             default:
                 break;
@@ -116,46 +151,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mMap = googleMap;
 
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
-        {
-            // TODO: Consider calling
-            // ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            // public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                        int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    MY_PERMISSION
-            );
-
-        }
-        else
-        {
-            try
-            {
-                Log.i(TAG, "fix is here");
-                LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-                LocationListener locationListener = new MyLocationListener(getBaseContext(), MapsActivity.this);
-                currentLocation = locationManager.getLastKnownLocation(locationManager.GPS_PROVIDER);
-                locationManager.requestLocationUpdates(
-                        LocationManager.GPS_PROVIDER, 10000, 10, locationListener);
-
-                // Add a marker of your current location and move the camera
-                LatLng latLng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
-                trail.add(latLng);
-                mMap.addMarker(new MarkerOptions().position(latLng).title("Your Location"));
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16));
-            }
-            catch (SecurityException | NullPointerException e)
-            {
-                Log.i(TAG, "onMapReady");
-                e.printStackTrace();
-            }
-
-        }
+        LatLng latLng = new LatLng(24,80);
+        mMap.addMarker(new MarkerOptions().position(latLng).title("Your Location"));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16));
 
     }
 
