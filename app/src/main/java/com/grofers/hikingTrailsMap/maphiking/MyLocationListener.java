@@ -1,4 +1,4 @@
-package com.example.abhishekupadhyay.maphiking;
+package com.grofers.hikingTrailsMap.maphiking;
 
 import android.content.Context;
 import android.location.Location;
@@ -21,10 +21,6 @@ public class MyLocationListener implements LocationListener {
 
     @Override
     public void onLocationChanged(Location location) {
-
-        Toast.makeText(context,
-                "Location changed: Lat: " + location.getLatitude() + " Lng: "
-                        + location.getLongitude(), Toast.LENGTH_SHORT).show();
 
         iLocationChange.onLocationChange(location);
     }

@@ -1,4 +1,4 @@
-package com.example.abhishekupadhyay.maphiking;
+package com.grofers.hikingTrailsMap.maphiking;
 
 import android.location.Location;
 
