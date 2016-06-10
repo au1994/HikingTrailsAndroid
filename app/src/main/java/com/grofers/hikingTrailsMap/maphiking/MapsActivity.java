@@ -30,6 +30,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -122,7 +123,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
                 else
                 {
-                    new createTrailAsyncTask();
+                    new createTrailAsyncTask().execute();
                     startHiking.setText(R.string.start_hiking);
                 }
                 break;
@@ -151,9 +152,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mMap = googleMap;
 
-        LatLng latLng = new LatLng(24,80);
+        LatLng latLng = new LatLng(28.459497, 77.026638);
         mMap.addMarker(new MarkerOptions().position(latLng).title("Your Location"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 12));
 
     }
 
@@ -239,7 +240,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     //Async Tasks
-    private class createTrailAsyncTask extends AsyncTask<Void, Void, JSONObject>
+    private class createTrailAsyncTask extends AsyncTask<Void, Void, String>
     {
         private ProgressDialog progressDialog;
 
@@ -254,7 +255,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
         @Override
-        protected JSONObject doInBackground(Void... params)
+        protected String doInBackground(Void... params)
         {
             JSONObject jsonObject = new JSONObject();
             try {
@@ -263,19 +264,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             } catch (JSONException e) {
                 e.printStackTrace();
             }
-            return jsonObject;
+
+            String url = "http://127.0.0.1:5000/trails/create";
+            String response = "";
+            PostJsonData postJsonData = new PostJsonData(jsonObject, url);
+
+            try {
+                response = postJsonData.postData();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            System.out.println("response " + response);
+
+            return response;
         }
 
         @Override
-        protected void onPostExecute(JSONObject jsonObject)
+        protected void onPostExecute(String jsonObject)
         {
             super.onPostExecute(jsonObject);
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            PostJsonData postJsonData = new PostJsonData(jsonObject, "url");
             progressDialog.hide();
 
         }

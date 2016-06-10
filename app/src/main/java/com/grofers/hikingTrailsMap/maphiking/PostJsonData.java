@@ -20,9 +20,9 @@ public class PostJsonData {
     private JSONObject jsonObject;
     private String urlString;
 
-    public PostJsonData(JSONObject jsonObject, String url) {
+    public PostJsonData(JSONObject jsonObject, String urlString) {
         this.jsonObject = jsonObject;
-        this.urlString = url;
+        this.urlString = urlString;
     }
 
     public String postData() throws IOException {
