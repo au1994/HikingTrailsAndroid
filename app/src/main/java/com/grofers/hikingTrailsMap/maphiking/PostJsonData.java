@@ -1,5 +1,18 @@
 package com.grofers.hikingTrailsMap.maphiking;
 
+import android.util.Log;
+
+import com.android.volley.AuthFailureError;
+import com.android.volley.NetworkResponse;
+import com.android.volley.ParseError;
+import com.android.volley.Request;
+import com.android.volley.Response;
+import com.android.volley.VolleyLog;
+import com.android.volley.toolbox.HttpHeaderParser;
+import com.android.volley.toolbox.JsonRequest;
+import com.android.volley.toolbox.Volley;
+
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -8,56 +21,45 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.net.ssl.HttpsURLConnection;
 
 /**
  * Created by abhishekupadhyay on 10/06/16.
  */
-public class PostJsonData {
-    private JSONObject jsonObject;
+public class PostJsonData extends JsonRequest<JSONObject>{
+
     private String urlString;
+    private Response.Listener<JSONObject> listener;
 
-    public PostJsonData(JSONObject jsonObject, String urlString) {
-        this.jsonObject = jsonObject;
+    public PostJsonData(int method, String urlString, JSONObject jsonObject, Response.Listener<JSONObject> listener, Response.ErrorListener errorListener) {
+        super(method, urlString, (jsonObject == null) ? null : jsonObject.toString(), listener, errorListener);
         this.urlString = urlString;
+        this.listener = listener;
     }
 
-    public String postData() throws IOException {
+    @Override
+    protected void deliverResponse(JSONObject response) {
+        listener.onResponse(response);
+    }
 
-        String response="";
-        URL url = new URL(urlString);
-        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
-        urlConnection.setRequestMethod("POST");
-        urlConnection.setRequestProperty("Content-Type", "application/json");
-        urlConnection.setDoInput(true);
-        urlConnection.setDoOutput(true);
-        urlConnection.setChunkedStreamingMode(0);
-
-        OutputStream out = urlConnection.getOutputStream();
-        BufferedWriter writer = new BufferedWriter(
-                new OutputStreamWriter(out, "UTF-8")
-        );
-        writer.write(jsonObject.toString());
-        writer.flush();
-        writer.close();
-        out.close();
-        urlConnection.connect();
-        int responseCode  = urlConnection.getResponseCode();
-        if(responseCode == HttpsURLConnection.HTTP_OK) {
-            String line;
-            BufferedReader br = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
-            while ((line = br.readLine()) != null) {
-                response += line;
-            }
+    @Override
+    protected Response<JSONObject> parseNetworkResponse(NetworkResponse response) {
+        try {
+            String jsonString = new String(response.data,
+                    HttpHeaderParser.parseCharset(response.headers));
+            return Response.success(new JSONObject(jsonString),
+                    HttpHeaderParser.parseCacheHeaders(response));
+        } catch (UnsupportedEncodingException e) {
+            return Response.error(new ParseError(e));
+        } catch (JSONException je) {
+            return Response.error(new ParseError(je));
         }
-
-        return response;
-
-
     }
-
 
 }
