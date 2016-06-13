@@ -13,16 +13,27 @@ public class TrailDetail {
     private String userId;
     private String trailId;
     private List<LatLng> trail = new ArrayList<>();
+    private List<Double> loc = new ArrayList<>();
 
-    public TrailDetail(String userId, String trailId, List<LatLng> trail) {
+    public TrailDetail(String userId, String trailId, List<LatLng> trail, List<Double> loc) {
         this.userId = userId;
         this.trailId = trailId;
         this.trail = trail;
+        this.loc = loc;
     }
 
-    public TrailDetail(List<LatLng> trail, String userId) {
+    public TrailDetail(List<LatLng> trail, String userId, List<Double> loc) {
         this.trail = trail;
         this.userId = userId;
+        this.loc = loc;
+    }
+
+    public List<Double> getLoc() {
+        return loc;
+    }
+
+    public void setLoc(List<Double> loc) {
+        this.loc = loc;
     }
 
     public String getUserId() {

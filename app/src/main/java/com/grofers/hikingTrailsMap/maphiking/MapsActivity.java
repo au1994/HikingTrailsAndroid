@@ -1,7 +1,9 @@
 package com.grofers.hikingTrailsMap.maphiking;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.ProgressDialog;
+import android.app.SearchManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -12,11 +14,15 @@ import android.location.LocationManager;
 import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.provider.Settings.Secure;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.widget.SearchView;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -27,6 +33,10 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
+import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -35,11 +45,14 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -85,7 +98,45 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         startHiking.setTag("start");
         startHiking.setOnClickListener(this);
 
+        PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
+                getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
+
+        autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(Place place) {
+                // TODO: Get info about the selected place.
+                Log.i(TAG, "Place: " + place.getName());
+                startHiking.setVisibility(View.GONE);
+                searchTrail(place.getLatLng().latitude, place.getLatLng().longitude);
+            }
+
+            @Override
+            public void onError(Status status) {
+                // TODO: Handle the error.
+                Log.i(TAG, "An error occurred: " + status);
+            }
+        });
+
     }
+
+
+
+
+    /*@Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the options menu from XML
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.options_menu, menu);
+
+        // Get the SearchView and set the searchable configuration
+        SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
+        SearchView searchView = (SearchView) menu.findItem(R.id.menu_search).getActionView();
+        // Assumes current activity is the searchable activity
+        searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
+        searchView.setIconifiedByDefault(false); // Do not iconify the widget; expand it by default
+
+        return true;
+    }*/
 
     @Override
     public void onClick(View v)
@@ -98,16 +149,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     //Todo: start hiking:-
                     Log.i(TAG, "start button clicked");
 
-                    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
-                    {
-                        // TODO: Consider calling
-                        // ActivityCompat#requestPermissions
-                        // here to request the missing permissions, and then overriding
-                        // public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                        //                                        int[] grantResults)
-                        // to handle the case where the user grants the permission. See the documentation
-                        // for ActivityCompat#requestPermissions for more details.
+                    int permissionCheck = ContextCompat.checkSelfPermission(context,
+                            Manifest.permission.ACCESS_FINE_LOCATION);
 
+                    int granted = PackageManager.PERMISSION_GRANTED;
+
+
+                    Log.d("permission check", String.valueOf(permissionCheck));
+
+
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+                    {
                         ActivityCompat.requestPermissions(this,
                                 new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                                 MY_PERMISSION
@@ -125,7 +177,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             LocationListener locationListener = new MyLocationListener(getBaseContext(), MapsActivity.this);
                             currentLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                             locationManager.requestLocationUpdates(
-                                    LocationManager.GPS_PROVIDER, 10000, 10, locationListener);
+                                    LocationManager.GPS_PROVIDER, 5000, 10, locationListener);
 
                             // Add a marker of your current location and move the camera
                             LatLng latLng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
@@ -217,7 +269,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         LocationListener locationListener = new MyLocationListener(getBaseContext(), MapsActivity.this);
                         currentLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                         locationManager.requestLocationUpdates(
-                                LocationManager.GPS_PROVIDER, 10000, 10, locationListener);
+                                LocationManager.GPS_PROVIDER, 5000, 10, locationListener);
 
                         LatLng latLng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
                         trail.add(latLng);
@@ -252,21 +304,28 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onLocationChange(Location location) {
-        //Todo plot on map here
-        Log.i(TAG, "MapsActivity onLocationChange called");
-        System.out.println("changing frequently");
-        //Todo: add location to trail(arraylist<LatLng>)
-        List<LatLng> points  = new ArrayList<LatLng>();
-        LatLng currentLatLng = new LatLng(currentLocation.getLatitude(),currentLocation.getLongitude());
-        LatLng newLatLng = new LatLng(location.getLatitude(),location.getLongitude());
-        currentLocation = location;
-        trail.add(newLatLng);
-        points.add(currentLatLng);
-        points.add(newLatLng);
-        PolylineOptions polylineOptions = new PolylineOptions();
-        polylineOptions.addAll(points).color(Color.BLUE).width(5).geodesic(true);
-        mMap.addPolyline(polylineOptions);
 
+        try
+        {
+            //Todo plot on map here
+            Log.i(TAG, "MapsActivity onLocationChange called");
+            System.out.println("changing frequently");
+            //Todo: add location to trail(arraylist<LatLng>)
+            List<LatLng> points  = new ArrayList<>();
+            LatLng currentLatLng = new LatLng(currentLocation.getLatitude(),currentLocation.getLongitude());
+            LatLng newLatLng = new LatLng(location.getLatitude(),location.getLongitude());
+            currentLocation = location;
+            trail.add(newLatLng);
+            points.add(currentLatLng);
+            points.add(newLatLng);
+            PolylineOptions polylineOptions = new PolylineOptions();
+            polylineOptions.addAll(points).color(Color.BLUE).width(5).geodesic(true);
+            mMap.addPolyline(polylineOptions);
+        }
+        catch (NullPointerException e)
+        {
+            e.printStackTrace();
+        }
 
     }
 
@@ -281,7 +340,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         progressDialog.show();
 
         Gson gson = new Gson();
-        TrailDetail trailDetail = new TrailDetail(trail, androidId);
+        List<Double> loc = new ArrayList<>();
+        loc.add(trail.get(0).latitude);
+        loc.add(trail.get(0).longitude);
+        TrailDetail trailDetail = new TrailDetail(trail, androidId, loc);
         String url = "http://192.168.1.55:5000/trails/create";
         String jsonString = gson.toJson(trailDetail);
         JSONObject jsonObject = null;
@@ -298,7 +360,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 progressDialog.hide();
                 shareTrail();
                 trail.clear();
-
+                mMap.clear();
             }
         }, new Response.ErrorListener() {
             @Override
@@ -307,6 +369,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 progressDialog.hide();
                 //Todo: share trail must not be here
                 shareTrail();
+                mMap.clear();
 
             }
         });
@@ -323,7 +386,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     {
         //String shareUrl = "https://www.google.com/maps?saddr=San+Francisco&daddr=GooglePlex+Mountain+View+" +
         //        "to:Google+Building+45+to:San+Jose";
-        String shareUrl = "https://www.google.com/maps?";
+        String shareUrl = "https://www.google.com/maps?f=d&hl=en";
         String params = "";
         int size = trail.size();
         Log.d("trail length", String.valueOf(size));
@@ -341,5 +404,74 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         shareIntent.putExtra(Intent.EXTRA_SUBJECT, "My New Trail");
         shareIntent.putExtra(Intent.EXTRA_TEXT, shareUrl);
         startActivity(shareIntent);
+    }
+
+    private void searchTrail(Double lat, Double lon)
+    {
+        final ProgressDialog progressDialog;
+        progressDialog = new ProgressDialog(context);
+        progressDialog.setMessage("Getting Nearby Trails, Please wait...");
+        progressDialog.setIndeterminate(true);
+        progressDialog.show();
+
+        String url = "http://192.168.1.55:5000/trails/search?lat=" + lat + "&" + lon;
+
+        GetNearbyTrails getNearbyTrails = new GetNearbyTrails(Request.Method.GET, url, new Response.Listener<JSONArray>() {
+            @Override
+            public void onResponse(JSONArray response) {
+                Log.d("Response: ", response.toString());
+                progressDialog.hide();
+                addMarkers(response);
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError response) {
+                Log.d("Response: ", response.toString());
+                progressDialog.hide();
+                //Todo: toast error getting trails
+
+
+            }
+        });
+
+        getNearbyTrails.setRetryPolicy(new DefaultRetryPolicy(
+                5000,
+                DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+        queue.add(getNearbyTrails);
+
+    }
+
+    private void addMarkers(JSONArray response)
+    {
+        //Gson gson = new Gson();
+        //Type listType = new TypeToken<List<TrailDetail>>(){}.getType();
+        //List<TrailDetail> trailList = gson.fromJson(response.toString(), listType);
+        /*for(int i = 0 ; i < trailList.size(); i++)
+        {
+                //createMarker(trailList.get(i).getLoc().get(0), trailList.get(i).getLoc().get(1));
+            System.out.println("lat "+trailList.get(i).getLoc().get(0));
+        }*/
+        for(int i=0 ; i< response.length() ; i++)
+        {
+            try {
+                JSONObject jsonObject = response.getJSONObject(i);
+                JSONArray jsonArray = jsonObject.getJSONArray("loc");
+                createMarker(((Integer) jsonArray.get(0)).doubleValue(), ((Integer) jsonArray.get(1)).doubleValue());
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    private void createMarker(Double lat, Double lon)
+    {
+
+        LatLng latLng = new LatLng(lat, lon);
+        mMap.addMarker(new MarkerOptions().position(latLng).title("NearBy Grofers"));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 8));
+
     }
 }
