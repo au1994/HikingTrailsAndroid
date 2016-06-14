@@ -1,9 +1,7 @@
 package com.grofers.hikingTrailsMap.maphiking;
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.ProgressDialog;
-import android.app.SearchManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -11,18 +9,14 @@ import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.provider.Settings.Secure;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.SearchView;
+import android.support.v7.widget.CardView;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -51,7 +45,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,14 +57,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private Location currentLocation;
 
+    private ProgressDialog progressDialog;
+
+    private PlaceAutocompleteFragment autocompleteFragment;
+
+    private CardView cardView;
+
     private String TAG  = MapsActivity.class.getSimpleName();
     private String androidId="";
 
     private List<LatLng> trail = new ArrayList<>();
 
     private TextView startHiking;
-
-    private RequestQueue queue;
 
     private static final int MY_PERMISSION = 123;
 
@@ -81,8 +78,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setContentView(R.layout.activity_maps);
 
         context = MapsActivity.this;
-
-        queue = Volley.newRequestQueue(context);
 
         androidId = Secure.getString(getBaseContext().getContentResolver(), Secure.ANDROID_ID);
         Log.i(TAG, "your android id " + androidId);
@@ -98,7 +93,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         startHiking.setTag("start");
         startHiking.setOnClickListener(this);
 
-        PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
+        cardView = (CardView) findViewById(R.id.card_view);
+
+        autocompleteFragment = (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
 
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
@@ -168,7 +165,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     }
                     else
                     {
+
                         startHiking.setTag("stop");
+                        cardView.setVisibility(View.GONE);
                         startHiking.setText(R.string.stop_hiking);
                         try
                         {
@@ -182,6 +181,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             // Add a marker of your current location and move the camera
                             LatLng latLng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
                             trail.add(latLng);
+                            mMap.clear();
                             mMap.addMarker(new MarkerOptions().position(latLng).title("Your Location"));
                             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16));
                         }
@@ -207,6 +207,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         createTrail();
                         startHiking.setTag("start");
                         startHiking.setText(R.string.start_hiking);
+                        cardView.setVisibility(View.VISIBLE);
                     }
 
                 }
@@ -263,6 +264,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     // permission was granted, yay! Do the
                     // location-related task you need to do.
 
+                    startHiking.setTag("stop");
+                    cardView.setVisibility(View.GONE);
+                    startHiking.setText(R.string.stop_hiking);
+
                     try
                     {
                         LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -273,11 +278,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                         LatLng latLng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
                         trail.add(latLng);
-                        mMap.addMarker(new MarkerOptions().position(latLng).title("Your Location"));
+                        mMap.clear();
+                        mMap.addMarker(new MarkerOptions().position(latLng).title("Your Current Location"));
                         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16));
-
-
-
 
                     }catch (SecurityException | NullPointerException e)
                     {
@@ -343,8 +346,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         List<Double> loc = new ArrayList<>();
         loc.add(trail.get(0).latitude);
         loc.add(trail.get(0).longitude);
-        TrailDetail trailDetail = new TrailDetail(trail, androidId, loc);
-        String url = "http://192.168.1.55:5000/trails/create";
+        StartingPoint startingPoint = new StartingPoint("Point", loc);
+        TrailDetail trailDetail = new TrailDetail(trail, androidId, startingPoint);
+        //StringBuffer buffer = new StringBuffer("http://192.168.1.55:5000/trails/create");
+        String awsIp = getResources().getString(R.string.AWSIp);
+        String localIp = getResources().getString(R.string.localIp);
+        String url = "http://" + awsIp +":5000/trails/create";
         String jsonString = gson.toJson(trailDetail);
         JSONObject jsonObject = null;
         try {
@@ -359,8 +366,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.d("Response: ", response.toString());
                 progressDialog.hide();
                 shareTrail();
-                trail.clear();
-                mMap.clear();
             }
         }, new Response.ErrorListener() {
             @Override
@@ -368,8 +373,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.d("Response: ", response.toString());
                 progressDialog.hide();
                 //Todo: share trail must not be here
-                shareTrail();
-                mMap.clear();
+
 
             }
         });
@@ -378,15 +382,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 5000,
                 DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
                 DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
-        queue.add(postJsonData);
-
+        MySingleton.getInstance(this).addToRequestQueue(postJsonData);
     }
 
     private void shareTrail()
     {
         //String shareUrl = "https://www.google.com/maps?saddr=San+Francisco&daddr=GooglePlex+Mountain+View+" +
         //        "to:Google+Building+45+to:San+Jose";
-        String shareUrl = "https://www.google.com/maps?f=d&hl=en";
+        String shareUrl = "https://www.google.com/maps?";
         String params = "";
         int size = trail.size();
         Log.d("trail length", String.valueOf(size));
@@ -398,6 +401,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             params = params + "+to:" + trail.get(i).latitude + "," + trail.get(i).longitude;
         }
         //String urlFormat = "http://maps.google.com/maps?saddr=20.344,34.34&daddr=20.5666,45.345";
+        trail.clear();
+        mMap.clear();
         shareUrl = shareUrl + params;
         Intent shareIntent  = new Intent(Intent.ACTION_SEND);
         shareIntent.setType("text/plain");
@@ -414,14 +419,28 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         progressDialog.setIndeterminate(true);
         progressDialog.show();
 
-        String url = "http://192.168.1.55:5000/trails/search?lat=" + lat + "&" + lon;
+        //StringBuffer buffer = new StringBuffer("http://192.168.1.55:5000/trails/search?lat=\" + lat + \"&lon=\" + lon");
+        //buffer.append("lat");
+
+        String awsIp = getResources().getString(R.string.AWSIp);
+        String localIp = getResources().getString(R.string.localIp);
+        String url = "http://" + awsIp + ":5000/trails/search?lat=" + lat + "&lon=" + lon;
+        Log.d("search url", url);
 
         GetNearbyTrails getNearbyTrails = new GetNearbyTrails(Request.Method.GET, url, new Response.Listener<JSONArray>() {
             @Override
             public void onResponse(JSONArray response) {
                 Log.d("Response: ", response.toString());
                 progressDialog.hide();
+                if(response.length() == 0)
+                {
+                    CharSequence message = "No Results Found";
+                    int duration = Toast.LENGTH_SHORT;
+                    Toast toast = Toast.makeText(context, message, duration);
+                    toast.show();
+                }
                 addMarkers(response);
+                //plotRoute();
 
             }
         }, new Response.ErrorListener() {
@@ -431,7 +450,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 progressDialog.hide();
                 //Todo: toast error getting trails
 
-
             }
         });
 
@@ -439,30 +457,38 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 5000,
                 DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
                 DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
-        queue.add(getNearbyTrails);
+
+        MySingleton.getInstance(this).addToRequestQueue(getNearbyTrails);
 
     }
 
     private void addMarkers(JSONArray response)
     {
-        //Gson gson = new Gson();
-        //Type listType = new TypeToken<List<TrailDetail>>(){}.getType();
-        //List<TrailDetail> trailList = gson.fromJson(response.toString(), listType);
+        Gson gson = new Gson();
+        Type listType = new TypeToken<List<TrailDetail>>(){}.getType();
+        List<TrailDetail> trailList = gson.fromJson(response.toString(), listType);
         /*for(int i = 0 ; i < trailList.size(); i++)
         {
                 //createMarker(trailList.get(i).getLoc().get(0), trailList.get(i).getLoc().get(1));
             System.out.println("lat "+trailList.get(i).getLoc().get(0));
         }*/
-        for(int i=0 ; i< response.length() ; i++)
+        mMap.clear();
+        /*for(int i=0 ; i< response.length() ; i++)
         {
             try {
                 JSONObject jsonObject = response.getJSONObject(i);
-                JSONArray jsonArray = jsonObject.getJSONArray("loc");
-                createMarker(((Integer) jsonArray.get(0)).doubleValue(), ((Integer) jsonArray.get(1)).doubleValue());
+                JSONArray jsonArray = jsonObject.getJSONObject("startingPoint").getJSONArray("coordinates");
+                createMarker(( jsonArray.getDouble(0)), (jsonArray.getDouble(1)));
             } catch (JSONException e) {
                 e.printStackTrace();
             }
+        }*/
+        for(int i = 0 ; i< trailList.size() ;i++)
+        {
+            plotRoute(trailList.get(i).getTrail());
         }
+
+        startHiking.setVisibility(View.VISIBLE);
 
     }
 
@@ -474,4 +500,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 8));
 
     }
+
+    private void plotRoute(List<LatLng> trail)
+    {
+        Log.d(TAG, trail.toString());
+        LatLng latLng = trail.get(0);
+        PolylineOptions polylineOptions = new PolylineOptions().color(Color.BLUE).width(5);
+        polylineOptions.addAll(trail);
+        mMap.addPolyline(polylineOptions);
+        mMap.addMarker(new MarkerOptions().position(latLng).title("Your Trail"));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 18));
+    }
+
 }
